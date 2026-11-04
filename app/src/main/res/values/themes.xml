@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.HonorController" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">#FFF6F7FB</item>
+    </style>
+</resources>
