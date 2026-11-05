@@ -164,6 +164,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun rebootDevice() = viewModelScope.launch { c.rootDebloat.reboot() }
     fun uninstallViaSystemDialog(entry: AppEntry) { c.controller.openUninstallDialog(entry.packageName) }
 
+    /**
+     * One-click "Enable Developer options".
+     * With a shell (Shizuku/root) the secure settings are written directly and verified.
+     * Without one Android forbids it, so we open About phone for the 7 Build-number taps.
+     * Returns true when it was done automatically.
+     */
+    fun enableDeveloperOptions(onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val ctx = app
+        val ex = c.privilege.executor()
+        if (ex == null) {
+            if (com.honor.systemcontroller.core.magicos.MagicOsCompat.developerOptionsEnabled(ctx)) {
+                com.honor.systemcontroller.core.magicos.MagicOsCompat.openWirelessDebugging(ctx)
+                toast("Developer options are already on – turn on Wireless debugging here.")
+            } else {
+                com.honor.systemcontroller.core.magicos.MagicOsCompat.openAboutPhone(ctx)
+                toast("Tap “Build number” 7 times, enter your PIN, then come back.")
+            }
+            onDone(false); return@launch
+        }
+        _busy.value = "Enabling Developer options"
+        val outs = try { com.honor.systemcontroller.core.magicos.MagicOsCompat.enableDebugCommands.map { ex.run(it) } } finally { _busy.value = null }
+        val ok = com.honor.systemcontroller.core.magicos.MagicOsCompat.developerOptionsEnabled(ctx)
+        c.db.logs().insert(OperationLog(packageName = "-", action = "ENABLE_DEVELOPER_OPTIONS", mode = ex.mode.name,
+            command = com.honor.systemcontroller.core.magicos.MagicOsCompat.enableDebugCommands.joinToString("\n"),
+            success = ok, verified = ok, message = outs.joinToString(" | ") { it.combined.take(120) }, beforeState = "", afterState = ""))
+        toast(if (ok) "Developer options, USB and Wireless debugging enabled (confirmed)." else "Could not enable: " + outs.firstOrNull { it.exitCode != 0 }?.combined?.take(150))
+        onDone(ok)
+    }
+
     fun setComponent(entry: AppEntry, cls: String, enable: Boolean, onDone: (OpResult) -> Unit) = viewModelScope.launch {
         val r = c.controller.setComponent(entry, cls, enable)
         toast(r.message); onDone(r)
@@ -269,6 +298,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Regex("^ps -A( -o [A-Z%,]+)?$"),
         Regex("^pidof [A-Za-z0-9_.:]+$"),
         Regex("^getprop( [a-z0-9_.]+)?$"),
+        Regex("^settings (get|put) global (development_settings_enabled|adb_enabled|adb_wifi_enabled)( [01])?$"),
         Regex("^id$")
     )
 

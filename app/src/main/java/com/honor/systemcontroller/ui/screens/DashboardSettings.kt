@@ -82,6 +82,8 @@ fun DashboardScreen(vm: MainViewModel, go: (String) -> Unit) {
             StatTile("Modified", snaps.size.toString(), Info, Modifier.weight(1f))
         }
 
+        DeveloperOptionsCard(vm)
+
         SectionCard("Privilege mode") {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 StatusChip(mode.title, if (vm.c.privilege.executor() != null) Ok else Warn)
@@ -114,6 +116,52 @@ fun DashboardScreen(vm: MainViewModel, go: (String) -> Unit) {
             }
             TextButton({ MagicOsCompat.openAppLaunchManager(ctx) }) { Text("Open MagicOS App launch manager") }
         }
+    }
+}
+
+@Composable
+fun DeveloperOptionsCard(vm: MainViewModel) {
+    val ctx = LocalContext.current
+    var tick by remember { mutableStateOf(0) }
+    // Re-read the real settings every 2 s so progress updates while the user is in Settings.
+    LaunchedEffect(Unit) { while (true) { kotlinx.coroutines.delay(2000); tick++ } }
+    val dev = remember(tick) { MagicOsCompat.developerOptionsEnabled(ctx) }
+    val usb = remember(tick) { MagicOsCompat.usbDebuggingEnabled(ctx) }
+    val wifi = remember(tick) { MagicOsCompat.wirelessDebuggingEnabled(ctx) }
+    val shReady by vm.shizukuReady.collectAsStateWithLifecycle()
+
+    SectionCard("Developer options & debugging") {
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            StatusChip(if (dev) "Developer options ON" else "Developer options OFF", if (dev) Ok else Danger)
+            StatusChip(if (usb) "USB debug ON" else "USB debug OFF", if (usb) Ok else Warn)
+            StatusChip(if (wifi) "Wireless debug ON" else "Wireless debug OFF", if (wifi) Ok else Warn)
+        }
+        val allOn = dev && usb && wifi
+        Button(
+            onClick = {
+                if (allOn && !shReady) { MagicOsCompat.openShizuku(ctx); vm.requestShizuku() }
+                else vm.enableDeveloperOptions { tick++ }
+            },
+            enabled = !allOn || !shReady,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(when {
+                allOn && !shReady -> "All on – now start Shizuku"
+                allOn -> "Everything is enabled"
+                vm.c.privilege.executor() != null -> "Enable Developer options (one click)"
+                !dev -> "Enable Developer options"
+                else -> "Turn on Wireless debugging"
+            })
+        }
+        Text(
+            when {
+                vm.c.privilege.executor() != null -> "Switches on Developer options, USB debugging and Wireless debugging directly, then confirms each setting."
+                !dev -> "Android does not let apps flip this switch themselves. Tap the button, then tap “Build number” 7 times and enter your PIN. This card turns green automatically."
+                !wifi -> "Connect to Wi-Fi, switch on Wireless debugging, then pair Shizuku. After that this button works in one click every time."
+                else -> "Ready. Open Shizuku and tap Start, then Connect Shizuku below."
+            },
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 

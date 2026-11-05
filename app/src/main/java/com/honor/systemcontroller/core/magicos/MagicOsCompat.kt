@@ -65,6 +65,41 @@ object MagicOsCompat {
         runCatching { context.startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
 
+    // ---------- Developer options / debugging state (readable by any app) ----------
+    private fun global(context: Context, key: String): Int =
+        runCatching { Settings.Global.getInt(context.contentResolver, key, 0) }.getOrDefault(0)
+
+    fun developerOptionsEnabled(context: Context) = global(context, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED) == 1
+    fun usbDebuggingEnabled(context: Context) = global(context, Settings.Global.ADB_ENABLED) == 1
+    fun wirelessDebuggingEnabled(context: Context) = global(context, "adb_wifi_enabled") == 1
+
+    /** Shell commands that switch everything on (need Shizuku/ADB shell or root: WRITE_SECURE_SETTINGS). */
+    val enableDebugCommands = listOf(
+        "settings put global development_settings_enabled 1",
+        "settings put global adb_enabled 1",
+        "settings put global adb_wifi_enabled 1"
+    )
+
+    /** "About phone" – where Build number must be tapped 7 times. MagicOS tries its own screen first. */
+    fun openAboutPhone(context: Context) {
+        val candidates = listOf(
+            Intent(Settings.ACTION_DEVICE_INFO_SETTINGS),
+            Intent().setComponent(ComponentName("com.android.settings", "com.android.settings.Settings\$MyDeviceInfoActivity")),
+            Intent(Settings.ACTION_SETTINGS)
+        )
+        for (i in candidates) {
+            if (runCatching { context.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); true }.getOrDefault(false)) return
+        }
+    }
+
+    /** Opens Developer options scrolled to the Wireless debugging row where supported. */
+    fun openWirelessDebugging(context: Context) {
+        val i = Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+            .putExtra(":settings:fragment_args_key", "toggle_adb_wireless")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(i) }.onFailure { openDeveloperOptions(context) }
+    }
+
     fun openShizuku(context: Context): Boolean {
         val launch = context.packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")
         if (launch != null) { context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); return true }
