@@ -18,6 +18,14 @@ android {
     }
 
     signingConfigs {
+        // Fixed debug key committed to the repo so every CI build has the SAME signature and
+        // installs as an update over the previous one. Debug-only; never used for release.
+        getByName("debug") {
+            storeFile = file("hsc-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         // Release signing is read from environment variables / gradle properties so no secret
         // ever lives in the repository. See docs/BUILD_AND_INSTALL.md.
         create("release") {
@@ -39,6 +47,7 @@ android {
             if (rel.storeFile != null) signingConfig = rel
         }
         debug {
+            signingConfig = signingConfigs.getByName("debug")
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
         }
