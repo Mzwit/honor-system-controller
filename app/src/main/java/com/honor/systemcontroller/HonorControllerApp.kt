@@ -22,6 +22,7 @@ class AppContainer(app: HonorControllerApp) {
     val rootDebloat = com.honor.systemcontroller.core.packages.RootDebloat(db, privilege, discovery)
     val processes = ProcessInspector(app, privilege)
     val recovery = RecoveryManager(app, db)
+    val security = com.honor.systemcontroller.core.security.SecurityInspector(app)
     val blocklist = BlocklistEngine(app)
 }
 

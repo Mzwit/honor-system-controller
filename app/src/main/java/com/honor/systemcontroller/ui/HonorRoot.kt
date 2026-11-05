@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.DrawerValue
@@ -57,6 +58,7 @@ import com.honor.systemcontroller.ui.screens.BlocklistScreen
 import com.honor.systemcontroller.ui.screens.ConsoleScreen
 import com.honor.systemcontroller.ui.screens.DashboardScreen
 import com.honor.systemcontroller.ui.screens.ProcessesScreen
+import com.honor.systemcontroller.ui.screens.SecurityScreen
 import com.honor.systemcontroller.ui.screens.SettingsScreen
 import com.honor.systemcontroller.ui.screens.SystemPackagesScreen
 import com.honor.systemcontroller.ui.theme.HonorTheme
@@ -69,6 +71,7 @@ val destinations = listOf(
     Dest("apps", "Applications", Icons.Filled.Apps),
     Dest("system", "System Packages", Icons.Filled.Shield),
     Dest("blocklist", "Blocklist", Icons.Filled.Block),
+    Dest("security", "Security Scan", Icons.Filled.Security),
     Dest("processes", "Running Processes", Icons.Filled.Memory),
     Dest("automation", "Automation", Icons.Filled.Schedule),
     Dest("backup", "Backup & Recovery", Icons.Filled.Restore),
@@ -145,6 +148,7 @@ fun HonorRoot(vm: MainViewModel) {
                         composable("apps") { ApplicationsScreen(vm, open) }
                         composable("system") { SystemPackagesScreen(vm, open) }
                         composable("blocklist") { BlocklistScreen(vm, open) }
+                        composable("security") { SecurityScreen(vm) }
                         composable("processes") { ProcessesScreen(vm, open) }
                         composable("automation") { AutomationScreen(vm) }
                         composable("backup") { BackupScreen(vm) }

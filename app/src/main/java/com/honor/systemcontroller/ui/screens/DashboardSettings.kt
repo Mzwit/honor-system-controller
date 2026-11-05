@@ -58,6 +58,7 @@ import com.honor.systemcontroller.ui.theme.Warn
 
 @Composable
 fun DashboardScreen(vm: MainViewModel, go: (String) -> Unit) {
+    LaunchedEffect(Unit) { vm.refreshSecurity() }
     val apps by vm.apps.collectAsStateWithLifecycle()
     val mode by vm.mode.collectAsStateWithLifecycle()
     val shStatus by vm.shizukuStatus.collectAsStateWithLifecycle()
@@ -82,7 +83,7 @@ fun DashboardScreen(vm: MainViewModel, go: (String) -> Unit) {
             StatTile("Modified", snaps.size.toString(), Info, Modifier.weight(1f))
         }
 
-        DeveloperOptionsCard(vm)
+        DeveloperOptionsCard(vm, go)
 
         SectionCard("Privilege mode") {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -120,7 +121,7 @@ fun DashboardScreen(vm: MainViewModel, go: (String) -> Unit) {
 }
 
 @Composable
-fun DeveloperOptionsCard(vm: MainViewModel) {
+fun DeveloperOptionsCard(vm: MainViewModel, go: (String) -> Unit = {}) {
     val ctx = LocalContext.current
     var tick by remember { mutableStateOf(0) }
     // Re-read the real settings every 2 s so progress updates while the user is in Settings.
@@ -162,6 +163,7 @@ fun DeveloperOptionsCard(vm: MainViewModel) {
             },
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+        if (!dev) OutlinedButton({ go("security") }, Modifier.fillMaxWidth()) { Text("Build number does nothing? Run a Security Scan") }
     }
 }
 

@@ -193,6 +193,52 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         onDone(ok)
     }
 
+    // ----- security (device admins / accessibility / malware removal) -----
+    private val _admins = MutableStateFlow<List<com.honor.systemcontroller.core.security.SecurityInspector.AdminApp>>(emptyList())
+    val admins: StateFlow<List<com.honor.systemcontroller.core.security.SecurityInspector.AdminApp>> = _admins.asStateFlow()
+    private val _accessibility = MutableStateFlow<List<com.honor.systemcontroller.core.security.SecurityInspector.AccessApp>>(emptyList())
+    val accessibility: StateFlow<List<com.honor.systemcontroller.core.security.SecurityInspector.AccessApp>> = _accessibility.asStateFlow()
+    private val _debugRestricted = MutableStateFlow(false)
+    val debugRestricted: StateFlow<Boolean> = _debugRestricted.asStateFlow()
+
+    fun refreshSecurity() = viewModelScope.launch {
+        _admins.value = c.security.activeAdmins()
+        _accessibility.value = c.security.accessibilityServices()
+        _debugRestricted.value = c.security.debuggingRestricted()
+    }
+
+    fun openDeviceAdminSettings() = c.security.openDeviceAdminSettings()
+    fun openAccessibilitySettings() = c.security.openAccessibilitySettings()
+    fun openSecurityAppInfo(pkg: String) = c.security.openAppInfo(pkg)
+
+    /** Force-remove a non-owner device admin via Shizuku/root, then offer uninstall. */
+    fun forceRemoveAdmin(admin: com.honor.systemcontroller.core.security.SecurityInspector.AdminApp) = viewModelScope.launch {
+        if (admin.isDeviceOwner) { toast("This is a Device Owner. It cannot be removed by any app — a factory reset is the only way. If you did not set this up, back up your data first."); return@launch }
+        val ex = c.privilege.executor()
+        if (ex == null) {
+            c.security.openDeviceAdminSettings()
+            toast("Open the device admin, tap Deactivate, then uninstall. Connect Shizuku to do this in one tap.")
+            return@launch
+        }
+        _busy.value = "Removing admin: ${admin.label}"
+        val r1 = try { ex.run(c.security.removeAdminCommand(admin.component)) } finally { _busy.value = null }
+        refreshSecurity()
+        val stillAdmin = _admins.value.any { it.component == admin.component }
+        c.db.logs().insert(OperationLog(packageName = admin.packageName, action = "REMOVE_DEVICE_ADMIN", mode = ex.mode.name,
+            command = c.security.removeAdminCommand(admin.component), success = !stillAdmin, verified = !stillAdmin,
+            message = r1.combined.take(300), beforeState = "active admin", afterState = if (stillAdmin) "still admin" else "admin removed"))
+        toast(if (!stillAdmin) "Admin removed. You can now uninstall ${admin.label}." else "Could not remove: ${r1.combined.take(150)}")
+    }
+
+    /** After admin is gone, uninstall the offending package. */
+    fun forceUninstallPackage(pkg: String) = viewModelScope.launch {
+        val entry = c.discovery.single(pkg)
+        if (entry == null) { toast("Package not found"); return@launch }
+        _busy.value = "Uninstalling ${entry.label}"
+        val r = try { c.controller.perform(entry, AppAction.UNINSTALL) } finally { _busy.value = null }
+        toast(r.message.lineSequence().first()); refreshSecurity(); refreshOne(pkg)
+    }
+
     fun setComponent(entry: AppEntry, cls: String, enable: Boolean, onDone: (OpResult) -> Unit) = viewModelScope.launch {
         val r = c.controller.setComponent(entry, cls, enable)
         toast(r.message); onDone(r)
@@ -299,6 +345,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         Regex("^pidof [A-Za-z0-9_.:]+$"),
         Regex("^getprop( [a-z0-9_.]+)?$"),
         Regex("^settings (get|put) global (development_settings_enabled|adb_enabled|adb_wifi_enabled)( [01])?$"),
+        Regex("^dpm remove-active-admin [A-Za-z0-9_.]+/[A-Za-z0-9_.$]+$"),
         Regex("^id$")
     )
 
